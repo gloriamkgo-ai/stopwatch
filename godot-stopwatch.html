@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>고도를 기다리며 스탑워치</title>
+<style>
+  @font-face { font-family:"Pretendard"; src:url("fonts/PretendardVariable.woff2") format("woff2-variations"); font-weight:45 920; font-display:swap; }
+  :root { --cream:#f6ecd7; --amber:#f0b865; --ink:#0b0b14; --p:0; --m:0; }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body { overflow:hidden; color:var(--cream); background:#05061a; font-family:"Pretendard","Malgun Gothic",system-ui,sans-serif; }
+
+  /* sky: dusk → night, driven by elapsed time */
+  .sky { position:fixed; inset:0; z-index:0; }
+  .dusk { background:linear-gradient(180deg,#3b3560 0%,#9a5a78 38%,#e58a6a 66%,#f6bb78 82%,#f8d49a 100%); }
+  .night { background:linear-gradient(180deg,#02030c 0%,#0b1030 45%,#1a2250 78%,#2d2d5e 100%); opacity:var(--p); }
+  #stars { position:fixed; inset:0; z-index:0; width:100%; height:100%; opacity:var(--p); }
+  .sun { position:fixed; z-index:0; left:62%; bottom:18vh; width:min(16vh,120px); aspect-ratio:1; border-radius:50%;
+    background:radial-gradient(circle,#fff4cf,#ffc86a 60%,#ff9a52); box-shadow:0 0 80px 30px rgba(255,170,90,.55);
+    transform:translateY(calc(var(--p) * 38vh)); opacity:calc(1 - var(--p) * .9); }
+  .moon { position:fixed; z-index:0; left:12%; top:34vh; width:min(11vh,90px); aspect-ratio:1; border-radius:50%;
+    background:radial-gradient(circle at 36% 34%,#fffdf0,#efe3b8 62%,#cdbb86); box-shadow:0 0 50px 14px rgba(255,240,190,.35),0 0 140px 50px rgba(255,240,190,.12);
+    transform:translateY(calc((1 - var(--m)) * 60vh)); opacity:var(--m); }
+  .cloud { position:fixed; z-index:0; left:-30vw; height:8vh; width:28vw; border-radius:50%; background:rgba(255,230,210,.22); filter:blur(14px);
+    animation:drift linear infinite; opacity:calc(1 - var(--p) * .7); }
+  @keyframes drift { to { transform:translateX(160vw); } }
+
+  /* scene */
+  #scene { position:fixed; z-index:1; left:0; bottom:0; width:100%; height:62vh; overflow:visible; }
+  .lf { opacity:0; transition:opacity 1.6s, transform 1.6s; transform-box:fill-box; transform-origin:center; transform:scale(.3); }
+  .lf.on { opacity:1; transform:scale(1); }
+  .sway { transform-box:fill-box; transform-origin:50% 100%; animation:sway 5s ease-in-out infinite alternate; }
+  .sway2 { animation-duration:7s; animation-delay:-2s; }
+  @keyframes sway { from { transform:rotate(-1.4deg); } to { transform:rotate(1.4deg); } }
+  .hat { transform-box:fill-box; transform-origin:50% 100%; animation:hat 9s ease-in-out infinite; }
+  @keyframes hat { 0%,80%,100% { transform:rotate(0) translateY(0); } 86% { transform:rotate(-14deg) translate(-4px,-6px); } 94% { transform:rotate(0); } }
+  .boot { animation:boot 3.2s ease-in-out infinite; transform-box:fill-box; transform-origin:0 50%; }
+  @keyframes boot { 0%,70%,100% { transform:rotate(0); } 80% { transform:rotate(-12deg); } 90% { transform:rotate(0); } }
+  .crow { animation:crow 26s linear infinite; }
+  @keyframes crow { from { transform:translateX(-120px); } to { transform:translateX(1200px); } }
+  .flap { transform-box:fill-box; transform-origin:50% 100%; animation:flap .5s ease-in-out infinite alternate; }
+  @keyframes flap { to { transform:scaleY(-.6); } }
+  .twig { transform-box:fill-box; transform-origin:0 100%; animation:twig 6s ease-in-out infinite alternate; }
+  @keyframes twig { to { transform:rotate(1.6deg); } }
+
+  /* panel */
+  .panel { position:fixed; z-index:5; left:50%; top:5vh; transform:translateX(-50%); width:min(620px,92vw); padding:22px 24px 18px; border-radius:22px;
+    background:rgba(8,8,18,.62); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid rgba(246,236,215,.3);
+    box-shadow:0 18px 60px rgba(0,0,0,.45); text-align:center; }
+  .act { margin:0; font-size:13px; letter-spacing:.4em; color:var(--amber); font-weight:600; }
+  .time { display:flex; justify-content:center; align-items:baseline; margin:6px 0 2px; font-weight:300; font-variant-numeric:tabular-nums;
+    font-size:clamp(46px,11vw,100px); line-height:1.1; text-shadow:0 2px 18px rgba(0,0,0,.6); }
+  .time .d { display:inline-block; width:.62em; text-align:center; }
+  .time .s { display:inline-block; width:.3em; color:var(--amber); }
+  .time .cs { font-size:.45em; color:var(--amber); display:flex; align-items:baseline; margin-left:.1em; }
+  .running .time .s { animation:blink 1.6s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity:.3; } }
+  .line { min-height:2.8em; margin:6px 0 0; font-size:clamp(15px,3.6vw,18px); line-height:1.5; color:var(--cream); font-weight:500; transition:opacity .6s; }
+  .btns { display:flex; gap:10px; margin-top:14px; }
+  button { flex:1; padding:14px 0; font:600 17px/1 inherit; font-family:inherit; color:var(--cream); background:rgba(246,236,215,.08);
+    border:1.5px solid rgba(246,236,215,.5); border-radius:14px; cursor:pointer; transition:background .2s,transform .1s; }
+  button:hover:not(:disabled) { background:rgba(246,236,215,.2); }
+  button:active:not(:disabled) { transform:scale(.97); }
+  button:focus-visible { outline:3px solid var(--amber); outline-offset:2px; }
+  button:disabled { opacity:.35; cursor:default; }
+  #toggle { flex:1.5; color:var(--ink); background:var(--amber); border-color:var(--amber); font-size:18px; }
+  #toggle.stop { background:var(--cream); border-color:var(--cream); }
+  ul { list-style:none; margin:12px 0 0; padding:0; max-height:17vh; overflow:auto; text-align:left; }
+  li { display:grid; grid-template-columns:3em 1fr auto; gap:8px; padding:7px 2px; border-top:1px solid rgba(246,236,215,.2); font-size:15px; font-variant-numeric:tabular-nums; }
+  li b { color:var(--amber); font-weight:600; } li i { font-style:normal; color:#cfc6b4; }
+  .hint { margin:10px 0 0; font-size:12px; color:#cfc6b4; }
+  kbd { padding:1px 6px; border:1px solid rgba(246,236,215,.4); border-radius:5px; font-size:11px; }
+  @media (max-height:640px) { ul { display:none; } .line { min-height:2.2em; } }
+  @media (prefers-reduced-motion:reduce) { * { animation:none !important; } }
+</style>
+</head>
+<body>
+<div class="sky dusk"></div>
+<div class="sky night"></div>
+<canvas id="stars"></canvas>
+<div class="sun"></div>
+<div class="moon"></div>
+<div class="cloud" style="top:20vh;animation-duration:90s"></div>
+<div class="cloud" style="top:32vh;animation-duration:140s;animation-delay:-60s;width:20vw"></div>
+
+<svg id="scene" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+  <!-- far hills -->
+  <path d="M-2000 470 Q-200 400 150 450 T520 440 T900 450 T3000 430 V1400 H-2000Z" fill="#1a1530"/>
+  <!-- ground -->
+  <path d="M-2000 486 Q250 464 500 482 T1000 474 T3000 480 V1400 H-2000Z" fill="#0c0b14"/>
+  <!-- road -->
+  <path d="M360 700 L470 484 L540 484 L720 700Z" fill="#3a2f3c" opacity=".75"/>
+  <!-- crow -->
+  <g class="crow" transform="translate(0,160)"><g transform="translate(0,0)"><path class="flap" d="M0 0 Q8 -9 16 0 Q24 -9 32 0" fill="none" stroke="#0b0b14" stroke-width="3" stroke-linecap="round"/></g></g>
+  <!-- tree -->
+  <g stroke="#0b0b12" fill="none" stroke-linecap="round">
+    <path d="M706 486 C700 430 708 370 698 300" stroke-width="10"/>
+    <path class="twig" d="M702 372 C730 350 760 345 786 318" stroke-width="4"/>
+    <path class="twig" d="M700 334 C672 318 644 316 616 288" stroke-width="4"/>
+    <path d="M698 306 C700 280 712 262 724 240" stroke-width="3.5"/>
+    <path d="M744 340 C760 336 774 324 780 306" stroke-width="2.4"/>
+    <path d="M652 308 C640 300 632 288 630 270" stroke-width="2.4"/>
+  </g>
+  <g id="leaves" fill="#79b86b">
+    <circle class="lf" cx="786" cy="316" r="6"/><circle class="lf" cx="616" cy="287" r="6"/><circle class="lf" cx="724" cy="238" r="6"/>
+    <circle class="lf" cx="780" cy="304" r="5"/><circle class="lf" cx="630" cy="268" r="5"/><circle class="lf" cx="760" cy="344" r="5"/>
+  </g>
+  <!-- Estragon: sitting on a stone -->
+  <ellipse cx="392" cy="470" rx="28" ry="13" fill="#2a2733"/>
+  <g class="sway sway2">
+    <path d="M379 436 Q392 428 405 436 L408 466 L376 466Z" fill="#0b0b14"/>
+    <circle cx="392" cy="424" r="10" fill="#0b0b14"/>
+    <path d="M377 466 L356 482" stroke="#0b0b14" stroke-width="9" stroke-linecap="round"/>
+    <path d="M407 466 L428 482" stroke="#0b0b14" stroke-width="9" stroke-linecap="round"/>
+    <ellipse class="boot" cx="350" cy="485" rx="11" ry="5" fill="#0b0b14"/><ellipse cx="434" cy="485" rx="11" ry="5" fill="#0b0b14"/>
+  </g>
+  <!-- Vladimir: standing, bowler hat -->
+  <g class="sway">
+    <path d="M318 410 Q330 402 342 410 L346 458 L314 458Z" fill="#0b0b14"/>
+    <circle cx="330" cy="395" r="11" fill="#0b0b14"/>
+    <g class="hat"><ellipse cx="330" cy="386" rx="17" ry="4" fill="#0b0b14"/><path d="M317 386 Q330 362 343 386Z" fill="#0b0b14"/></g>
+    <rect x="318" y="456" width="9" height="28" fill="#0b0b14"/><rect x="333" y="456" width="9" height="28" fill="#0b0b14"/>
+    <path d="M314 414 L300 444 M346 414 L358 442" stroke="#0b0b14" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  <!-- messenger boy -->
+  <g id="boy" opacity="0">
+    <circle cx="0" cy="418" r="7" fill="#0b0b14"/><path d="M-7 424 L7 424 L9 458 L-9 458Z" fill="#0b0b14"/>
+    <rect x="-7" y="456" width="5.5" height="26" fill="#0b0b14"/><rect x="2" y="456" width="5.5" height="26" fill="#0b0b14"/>
+  </g>
+</svg>
+
+<main class="panel" id="panel">
+  <p class="act" id="act">제1막 · 시골길, 나무 한 그루, 저녁</p>
+  <div class="time" id="time" role="timer" aria-live="off"></div>
+  <p class="line" id="line">고도를 기다린다.</p>
+  <div class="btns">
+    <button id="lap" disabled>누가 온다</button>
+    <button id="toggle">기다린다</button>
+    <button id="reset" disabled>내일 다시</button>
+  </div>
+  <ul id="laps"></ul>
+  <p class="hint"><kbd>Space</kbd> 기다리기/멈추기 · <kbd>L</kbd> 누가 온다 · <kbd>R</kbd> 내일 다시</p>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+
+/* ---- stars ---- */
+const cv = $("stars"), cx = cv.getContext("2d"); let W, H, stars = [];
+function setup() {
+  const dpr = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  stars = Array.from({ length: Math.round(W * H / 6000) }, () => ({ x: Math.random() * W, y: Math.random() * H * .7, r: Math.random() * 1.3 + .3, p: Math.random() * 6.28, s: .6 + Math.random() * 2 }));
+}
+function drawStars(t) {
+  cx.clearRect(0, 0, W, H); cx.fillStyle = "#fff";
+  for (const s of stars) { cx.globalAlpha = .3 + .7 * (.5 + .5 * Math.sin(t * s.s + s.p)); cx.beginPath(); cx.arc(s.x, s.y, s.r, 0, 6.283); cx.fill(); }
+}
+addEventListener("resize", setup); setup();
+(function loop(t) { drawStars(t / 1000); requestAnimationFrame(loop); })(0);
+
+/* ---- story, driven by elapsed seconds ---- */
+const lines = [
+  [0, "시골길. 나무 한 그루. 저녁."],
+  [8, "고도를 기다린다."],
+  [30, "아무 일도 일어나지 않는다."],
+  [55, "나무에 잎이 돋기 시작했다."],
+  [85, "두 사람은 여전히 기다린다."],
+  [115, "저기, 누가 온다…"],
+  [128, "소년 : 고도 씨는 오늘 저녁엔 못 오세요. 내일은 꼭 오신대요."],
+  [143, "소년이 떠나간다. 해가 졌다. 달이 떠오른다."],
+  [165, "“그만 갈까?” “그래, 가자.” …그러나 둘은 움직이지 않는다."],
+  [195, "막은 내리지 않는다. 계속 기다린다."]
+];
+const acts = [[0, "제1막 · 시골길, 나무 한 그루, 저녁"], [143, "제2막 · 다음 날, 같은 곳"], [195, "막간 · 끝나지 않는 기다림"]];
+const leaves = [...document.querySelectorAll(".lf")], boy = $("boy");
+let lastLine = -1, lastAct = -1;
+function stage(sec) {
+  const p = clamp(sec / 150), m = clamp((sec - 20) / 50);
+  document.body.style.setProperty("--p", p.toFixed(3)); document.body.style.setProperty("--m", m.toFixed(3));
+  leaves.forEach((l, i) => l.classList.toggle("on", sec > 50 + i * 4));
+  let li = 0; lines.forEach((l, i) => { if (sec >= l[0]) li = i; });
+  if (li !== lastLine) { lastLine = li; $("line").textContent = lines[li][1]; }
+  let ai = 0; acts.forEach((a, i) => { if (sec >= a[0]) ai = i; });
+  if (ai !== lastAct) { lastAct = ai; $("act").textContent = acts[ai][1]; }
+  // boy walks in, waits, walks out
+  let x = null;
+  if (sec >= 115 && sec < 143) x = sec < 126 ? -80 + (sec - 115) / 11 * 270 : sec < 135 ? 190 : 190 - (sec - 135) / 8 * 270;
+  if (sec >= 135 && sec < 143) x = 190 - (sec - 135) / 8 * 270;
+  if (x === null) boy.setAttribute("opacity", 0); else { boy.setAttribute("opacity", 1); boy.setAttribute("transform", `translate(${x},0)`); }
+}
+
+/* ---- stopwatch ---- */
+let running = false, start = 0, elapsed = 0, lastLap = 0, raf, laps = [];
+const pad = (n, l = 2) => String(n).padStart(l, "0");
+const parts = ms => ({ h: pad(Math.floor(ms / 3600000)), m: pad(Math.floor(ms / 60000) % 60), s: pad(Math.floor(ms / 1000) % 60), cs: pad(Math.floor(ms / 10) % 100) });
+const digits = s => [...s].map(c => `<span class="d">${c}</span>`).join("");
+const fmt = ms => { const p = parts(ms); return `${p.h}:${p.m}:${p.s}.${p.cs}`; };
+function render() {
+  const now = running ? elapsed + performance.now() - start : elapsed, p = parts(now);
+  $("time").innerHTML = `${digits(p.h)}<span class="s">:</span>${digits(p.m)}<span class="s">:</span>${digits(p.s)}<span class="cs"><span class="s">.</span>${digits(p.cs)}</span>`;
+  document.title = `${fmt(now)} · 고도를 기다리며`;
+  stage(now / 1000);
+  if (running) raf = requestAnimationFrame(render);
+}
+function toggle() {
+  if (running) { elapsed += performance.now() - start; running = false; cancelAnimationFrame(raf); render(); }
+  else { start = performance.now(); running = true; raf = requestAnimationFrame(render); }
+  $("toggle").textContent = running ? "그만 기다린다" : (elapsed ? "다시 기다린다" : "기다린다");
+  $("toggle").classList.toggle("stop", running);
+  document.body.classList.toggle("running", running);
+  $("lap").disabled = !running; $("reset").disabled = running || !elapsed;
+}
+const who = ["고도가 아니었다. 지나가던 행인이었다.", "바람 소리였다.", "까마귀였다.", "착각이었다.", "고도가 아니었다. 그림자였다.", "아니다. 아무도 오지 않았다."];
+function drawLaps() {
+  $("laps").innerHTML = laps.map(l => `<li><b>${l.n}번째</b><i>${l.who}</i><span>${fmt(l.total).replace(/^00:/, "")}</span></li>`).join("");
+}
+function lap() {
+  if (!running) return;
+  const now = elapsed + performance.now() - start;
+  laps.unshift({ n: laps.length + 1, who: who[Math.random() * who.length | 0], total: now }); lastLap = now; drawLaps();
+}
+function reset() {
+  if (running) return;
+  elapsed = 0; laps = []; drawLaps(); lastLine = lastAct = -1;
+  $("toggle").textContent = "기다린다"; $("reset").disabled = true; render();
+}
+$("toggle").onclick = toggle; $("lap").onclick = lap; $("reset").onclick = reset;
+addEventListener("keydown", e => {
+  if (e.code === "Space") { e.preventDefault(); toggle(); }
+  else if (e.key.toLowerCase() === "l") lap();
+  else if (e.key.toLowerCase() === "r") reset();
+});
+render();
+</script>
+</body>
+</html>

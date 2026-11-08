@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>도쿄 나이트 스탑워치</title>
+<style>
+  @font-face { font-family:"Pretendard"; src:url("fonts/PretendardVariable.woff2") format("woff2-variations"); font-weight:45 920; font-display:swap; }
+  :root { --amber:#ffb347; --orange:#ff7a2f; --pink:#ff4f9a; --cyan:#6fe3ff; --ink:#fff; --muted:#c9cdea; }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body {
+    overflow:hidden; color:var(--ink);
+    font-family:"Pretendard","Malgun Gothic",system-ui,sans-serif;
+    background:linear-gradient(180deg,#03051a 0%,#0b0f3a 38%,#2a1766 62%,#7a2a76 80%,#e8683f 100%);
+  }
+  canvas { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; }
+  #bg { z-index:0; } #fg { z-index:3; }
+
+  /* moon */
+  .moon { position:fixed; z-index:0; top:9vh; right:30vw; width:clamp(40px,5vw,72px); aspect-ratio:1; border-radius:50%;
+    background:radial-gradient(circle at 35% 35%,#fffbe9,#f6e7b8 60%,#d9c58a);
+    box-shadow:0 0 40px 12px rgba(255,236,170,.35),0 0 120px 40px rgba(255,236,170,.15); }
+
+  /* tower */
+  #tower { position:fixed; z-index:2; bottom:-2vh; right:9vw; height:97vh; width:auto; aspect-ratio:240/600;
+    overflow:visible; filter:drop-shadow(0 0 22px rgba(255,140,60,.55)); }
+  .lat { fill:none; stroke:#ff8a3d; stroke-width:1.5; stroke-linecap:round; }
+  .edge { fill:none; stroke:#ffc36b; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; }
+  .deck { fill:#ffb347; stroke:#fff1c9; stroke-width:1; }
+  .deckwin { fill:#fff6d6; }
+  .sweep { animation:sweep 5s linear infinite; }
+  @keyframes sweep { from { transform:translateY(640px); } to { transform:translateY(-140px); } }
+  .pulse { animation:pulse 3s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity:.75; } 50% { opacity:1; } }
+  .spark { opacity:0; animation:spark 2s ease-in-out infinite; }
+  @keyframes spark { 0%,100% { opacity:0; transform:scale(.4); } 50% { opacity:1; transform:scale(1.4); } }
+  .halo { position:fixed; z-index:1; bottom:0; right:calc(10vw - 14vh); height:100vh; width:48vh; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 60%,rgba(255,140,60,.35),rgba(255,90,60,.12) 45%,transparent 70%); animation:breathe 4s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity:.55; } }
+  .beacon { animation:beacon 1.6s ease-in-out infinite; }
+  @keyframes beacon { 0%,100% { opacity:.2; } 50% { opacity:1; } }
+
+  /* panel */
+  .panel {
+    position:fixed; z-index:5; left:8vw; top:50%; transform:translateY(-50%);
+    width:min(560px,86vw); padding:30px 28px 22px; border-radius:26px;
+    background:rgba(6,8,30,.72); backdrop-filter:blur(14px) saturate(1.2); -webkit-backdrop-filter:blur(14px) saturate(1.2);
+    border:1px solid rgba(255,190,110,.45);
+    box-shadow:0 0 0 1px rgba(255,255,255,.05) inset,0 20px 70px rgba(0,0,0,.55),0 0 50px rgba(255,130,60,.25);
+  }
+  .title { margin:0 0 6px; text-align:center; font-size:13px; letter-spacing:.35em; color:var(--amber); font-weight:600; }
+  .time { display:flex; justify-content:center; align-items:baseline; margin:6px 0 4px;
+    font-family:"Pretendard","Malgun Gothic",system-ui,sans-serif; font-weight:800; font-variant-numeric:tabular-nums;
+    font-size:clamp(46px,9vw,92px); line-height:1.1;
+    text-shadow:0 0 3px rgba(255,255,255,.8),0 0 20px rgba(255,160,80,.7),0 0 50px rgba(255,100,60,.4); }
+  .running .time .s { animation:colon 1s steps(1) infinite; }
+  @keyframes colon { 50% { opacity:.25; } }
+  .time .d { display:inline-block; width:.66em; text-align:center; }
+  .time .s { display:inline-block; width:.3em; text-align:center; color:var(--amber); }
+  .time .cs { font-size:.5em; color:var(--amber); display:flex; align-items:baseline; margin-left:.1em; }
+  .running .time { animation:glow 1.6s ease-in-out infinite; }
+  @keyframes glow { 50% { text-shadow:0 0 8px #fff,0 0 34px rgba(255,170,90,.95),0 0 80px rgba(255,90,70,.6); } }
+
+  .btns { display:flex; gap:12px; margin-top:20px; }
+  button { flex:1; padding:16px 0; font:700 18px/1 inherit; font-family:inherit; border-radius:16px; cursor:pointer;
+    color:#fff; background:rgba(255,255,255,.1); border:1.5px solid rgba(255,255,255,.4); transition:transform .12s,box-shadow .2s,background .2s; }
+  button:hover:not(:disabled) { background:rgba(255,255,255,.2); transform:translateY(-1px); }
+  button:active:not(:disabled) { transform:scale(.97); }
+  button:focus-visible { outline:3px solid var(--cyan); outline-offset:2px; }
+  button:disabled { opacity:.35; cursor:default; }
+  #toggle { flex:1.6; color:#1a0c05; border:0; background:linear-gradient(135deg,#ffd27a,#ff8a3d); box-shadow:0 0 28px rgba(255,150,70,.55); font-size:20px; }
+  #toggle.stop { color:#fff; background:linear-gradient(135deg,#ff6b8a,#e5334f); box-shadow:0 0 28px rgba(255,70,100,.6); }
+
+  ul { list-style:none; margin:18px 0 0; padding:0; max-height:22vh; overflow:auto; }
+  li { display:grid; grid-template-columns:3.2em 1fr 1fr; gap:8px; padding:9px 4px; border-top:1px solid rgba(255,255,255,.18);
+    font-family:"Pretendard",system-ui,sans-serif; font-size:17px; font-weight:600; font-variant-numeric:tabular-nums; }
+  li span:first-child { color:var(--amber); font-family:inherit; }
+  li span:nth-child(2) { color:var(--cyan); text-align:right; } li span:last-child { text-align:right; }
+  li.best span:nth-child(2) { color:#7dffb0; } li.worst span:nth-child(2) { color:#ff8fa3; }
+  .hint { margin:14px 0 0; text-align:center; font-size:13px; color:var(--muted); }
+  kbd { padding:1px 7px; border:1px solid rgba(255,255,255,.4); border-radius:6px; font-size:12px; }
+
+  /* ---- 화려한 연출 ---- */
+  @property --a { syntax:"<angle>"; initial-value:0deg; inherits:false; }
+  .panel::before { content:""; position:absolute; inset:-2px; border-radius:inherit; padding:2px; pointer-events:none;
+    background:conic-gradient(from var(--a),#ff7a2f,#ff4f9a,#6fe3ff,#ffd27a,#ff7a2f); animation:spin 5s linear infinite;
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; filter:drop-shadow(0 0 8px rgba(255,150,100,.8)); }
+  @keyframes spin { to { --a:360deg; } }
+  .title { background:linear-gradient(90deg,#ffb347,#fff,#ff7ab8,#6fe3ff,#ffb347); background-size:250% 100%;
+    -webkit-background-clip:text; background-clip:text; color:transparent; animation:shimmer 4s linear infinite; }
+  @keyframes shimmer { to { background-position:250% 0; } }
+  #toggle { position:relative; overflow:hidden; animation:btnpulse 2.2s ease-in-out infinite; }
+  #toggle::after { content:""; position:absolute; top:0; bottom:0; width:40%; left:-60%; transform:skewX(-20deg);
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.65),transparent); animation:shine 2.8s ease-in-out infinite; }
+  @keyframes shine { 0% { left:-60%; } 55%,100% { left:130%; } }
+  @keyframes btnpulse { 50% { box-shadow:0 0 46px rgba(255,170,90,.95),0 0 90px rgba(255,90,60,.4); } }
+  .beam { position:fixed; z-index:1; bottom:-2vh; left:var(--x); width:30vh; margin-left:-15vh; height:94vh; pointer-events:none;
+    transform-origin:50% 100%; clip-path:polygon(46% 100%,54% 100%,100% 0,0 0); mix-blend-mode:screen; filter:blur(1.5px);
+    background:linear-gradient(to top,var(--c),transparent 92%); animation:swing var(--d) ease-in-out infinite alternate; }
+  @keyframes swing { from { transform:rotate(-30deg); } to { transform:rotate(30deg); } }
+  .running #tower { animation:towerhue 7s linear infinite; }
+  @keyframes towerhue {
+    from { filter:drop-shadow(0 0 26px rgba(255,140,60,.7)) hue-rotate(0deg); }
+    to   { filter:drop-shadow(0 0 26px rgba(255,140,60,.7)) hue-rotate(360deg); } }
+  .running .time { animation:glow 1.6s ease-in-out infinite,timehue 7s linear infinite; }
+  @keyframes timehue { to { filter:hue-rotate(360deg); } }
+  .running .halo { animation:breathe 1.4s ease-in-out infinite,towerhue 7s linear infinite; }
+  @media (max-aspect-ratio:1/1) { .beam { width:40vw; margin-left:-20vw; } }
+
+  /* 가로 화면이 좁아져도 가로형 배치를 유지 */
+  @media (max-width:1000px) and (min-aspect-ratio:1/1) { .panel { left:4vw; width:min(520px,56vw); padding:22px 20px 16px; } #tower { right:4vw; } .halo { right:calc(4vw - 14vh); } }
+  /* 세로 화면: 타워를 중앙에, 끝이 보이도록 */
+  @media (max-aspect-ratio:1/1) {
+    .panel { left:50%; top:auto; bottom:3vh; transform:translateX(-50%); width:min(560px,92vw); }
+    #tower { right:auto; left:50%; transform:translateX(-50%); height:74vh; bottom:12vh; }
+    .halo { right:auto; left:50%; transform:translateX(-50%); height:74vh; bottom:12vh; }
+    .moon { right:10vw; top:5vh; }
+    ul { max-height:12vh; }
+  }
+  @media (prefers-reduced-motion:reduce) { .sweep,.pulse,.beacon,.running .time { animation:none; } }
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="moon"></div>
+<div class="beam" style="--x:14%;--c:rgba(111,227,255,.5);--d:7s"></div>
+<div class="beam" style="--x:46%;--c:rgba(255,120,190,.45);--d:9s;animation-delay:-3s"></div>
+<div class="beam" style="--x:80%;--c:rgba(255,210,120,.5);--d:8s;animation-delay:-5s"></div>
+
+<div class="halo"></div>
+<svg id="tower" viewBox="0 0 240 600" aria-hidden="true">
+  <defs>
+    <filter id="glow" x="-50%" y="-20%" width="200%" height="140%">
+      <feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="band" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".95"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="bc"><stop offset="0" stop-color="#ff3b3b"/><stop offset="1" stop-color="#ff3b3b" stop-opacity="0"/></radialGradient>
+    <g id="structure"></g>
+    <mask id="m"><use href="#structure" style="stroke:#fff"/></mask>
+  </defs>
+  <g filter="url(#glow)" class="pulse"><use href="#structure"/></g>
+  <rect x="0" y="0" width="240" height="140" fill="url(#band)" mask="url(#m)" class="sweep"/>
+  <g id="decks"></g><g id="sparkles" filter="url(#glow)"></g>
+  <circle cx="120" cy="10" r="14" fill="url(#bc)" class="beacon"/><circle cx="120" cy="10" r="3" fill="#ff5a5a" class="beacon"/>
+</svg>
+
+<canvas id="fg"></canvas>
+
+<main class="panel" id="panel">
+  <h1 class="title">TOKYO NIGHT · STOPWATCH</h1>
+  <div class="time" id="time" role="timer" aria-live="off"></div>
+  <div class="btns">
+    <button id="lap" disabled>랩</button>
+    <button id="toggle">시작</button>
+    <button id="reset" disabled>초기화</button>
+  </div>
+  <ul id="laps"></ul>
+  <p class="hint"><kbd>Space</kbd> 시작/정지 · <kbd>L</kbd> 랩 · <kbd>R</kbd> 초기화</p>
+</main>
+
+<script>
+/* ---------- Tokyo Tower geometry ---------- */
+(function () {
+  const NS = "http://www.w3.org/2000/svg", cx = 120;
+  // sections: [yTop, yBottom, halfWidthTop, halfWidthBottom, curve]
+  const secs = [[200,310,13,30,1.3],[332,590,42,104,1.7]];
+  const halfAt = (s, y) => { const t = (y - s[0]) / (s[1] - s[0]); return s[2] + (s[3] - s[2]) * Math.pow(t, s[4]); };
+  const g = document.getElementById("structure");
+  const mk = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  let lat = "", L = [], R = [];
+  secs.forEach((s, si) => {
+    const n = Math.round((s[1] - s[0]) / (si ? 17 : 14));
+    let prev = null;
+    for (let i = 0; i <= n; i++) {
+      const y = s[0] + (s[1] - s[0]) * i / n, w = halfAt(s, y);
+      L.push([cx - w, y]); R.push([cx + w, y]);
+      lat += `M${cx - w},${y}H${cx + w}`;
+      if (prev) lat += `M${cx - prev.w},${prev.y}L${cx + w},${y}M${cx + prev.w},${prev.y}L${cx - w},${y}`;
+      prev = { y, w };
+    }
+    const e = (arr) => arr.slice(-(n + 1)).map(p => p.join(",")).join(" ");
+    g.appendChild(mk("polyline", { class: "edge", points: e(L) }));
+    g.appendChild(mk("polyline", { class: "edge", points: e(R) }));
+  });
+  g.appendChild(mk("path", { class: "lat", d: lat }));
+  // antenna
+  g.appendChild(mk("path", { class: "edge", d: `M${cx - 5},200L${cx - 1.2},48M${cx + 5},200L${cx + 1.2},48M${cx},48V12` }));
+  g.appendChild(mk("path", { class: "lat", d: "M117,170L123,150M123,170L117,150M118,130L122,112M122,130L118,112M119,96L121,80" }));
+  // base arch
+  g.appendChild(mk("path", { class: "edge", d: `M${cx - 104},590Q${cx},470 ${cx + 104},590M${cx - 62},590Q${cx},515 ${cx + 62},590`, style: "stroke-width:2" }));
+  // decks
+  const d = document.getElementById("decks");
+  const deck = (y, w, h) => {
+    d.appendChild(mk("rect", { class: "deck", x: cx - w, y, width: w * 2, height: h, rx: 2 }));
+    for (let x = cx - w + 4; x < cx + w - 4; x += 7) d.appendChild(mk("rect", { class: "deckwin", x, y: y + h * .35, width: 3.6, height: h * .35 }));
+  };
+  deck(312, 50, 20); deck(300, 40, 9); deck(182, 22, 12);
+  // sparkles along the structure
+  const sp = document.getElementById("sparkles");
+  for (let i = 0; i < 46; i++) {
+    const pt = (Math.random() < .5 ? L : R)[Math.random() * L.length | 0];
+    const c = mk("circle", { cx: pt[0], cy: pt[1], r: 1.6 + Math.random() * 1.6, fill: "#fff", class: "spark" });
+    c.style.animationDelay = (Math.random() * 3).toFixed(2) + "s"; c.style.animationDuration = (1.2 + Math.random() * 2) + "s";
+    sp.appendChild(c);
+  }
+})();
+
+/* ---------- Night scene canvases ---------- */
+const bg = document.getElementById("bg"), fg = document.getElementById("fg");
+const bx = bg.getContext("2d"), fx = fg.getContext("2d");
+let W, H, DPR, stars = [], bokeh = [], blds = [], wins = [], shooters = [];
+function setup() {
+  DPR = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight;
+  [bg, fg].forEach(c => { c.width = W * DPR; c.height = H * DPR; });
+  bx.setTransform(DPR, 0, 0, DPR, 0, 0); fx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  stars = Array.from({ length: Math.round(W * H / 5500) }, () => ({
+    x: Math.random() * W, y: Math.random() * H * .7, r: Math.random() * 1.4 + .3, p: Math.random() * 6.28, s: .6 + Math.random() * 2.2,
+    c: ["#fff", "#cfe3ff", "#ffe9c9"][Math.random() * 3 | 0] }));
+  bokeh = Array.from({ length: 34 }, () => ({
+    x: Math.random() * W, y: H * (.68 + Math.random() * .32), r: 6 + Math.random() * 26, v: .1 + Math.random() * .3, p: Math.random() * 6.28,
+    c: ["255,170,90", "255,110,160", "130,220,255", "255,230,160"][Math.random() * 4 | 0] }));
+  // skyline
+  blds = []; wins = []; let x = -10; const maxH = H * .27;
+  while (x < W) {
+    const w = 28 + Math.random() * 62, edge = Math.abs(x - W * .5) / W;
+    const h = maxH * (.25 + Math.random() * .75) * (.65 + edge * .6);
+    blds.push({ x, w, h, shade: Math.random() });
+    for (let wy = H - h + 8; wy < H - 6; wy += 9) for (let wx = x + 5; wx < x + w - 6; wx += 8)
+      if (Math.random() < .42) wins.push({ x: wx, y: wy, p: Math.random() * 6.28, s: .4 + Math.random() * 2.5,
+        c: ["255,214,140", "255,238,200", "150,220,255", "255,150,190"][Math.random() * 4 | 0], big: Math.random() < .05 });
+    x += w + Math.random() * 6;
+  }
+}
+/* 불꽃놀이 · 벚꽃 · 오로라 · 비행기 · 자동차 */
+let fw = [], nextLaunch = 1, plane = null, nextPlane = 6;
+const cars = Array.from({ length: 40 }, (_, i) => ({ x: Math.random() * 2000, v: (Math.random() < .5 ? 1 : -1) * (.6 + Math.random() * 1.6), lane: i % 2, c: Math.random() < .5 ? "255,240,200" : "255,70,70" }));
+const petals = Array.from({ length: 38 }, () => ({ x: Math.random() * 2000, y: Math.random() * 1200, r: 3 + Math.random() * 4, vy: .3 + Math.random() * .7, sw: Math.random() * 6.28, rot: Math.random() * 6.28 }));
+function burst(x, y, hue) {
+  const n = 80 + Math.random() * 50 | 0, h = hue ?? Math.random() * 360, two = Math.random() < .45, k = Math.min(W, H) / 700 + .5;
+  for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, v = (.8 + Math.random() * 3.4) * k;
+    fw.push({ x, y, px: x, py: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, l: 1, d: .007 + Math.random() * .009, h: two && i % 2 ? h + 150 : h }); }
+}
+function launch(x) {
+  fw.push({ rocket: true, x: x ?? Math.random() * W, y: H * .86, px: 0, py: 0, vx: (Math.random() - .5) * .8, vy: -(5 + Math.random() * 3) * (H / 700),
+    ty: H * (.1 + Math.random() * .32), h: Math.random() * 360 });
+}
+function drawFX(t) {
+  // 오로라
+  bx.globalCompositeOperation = "lighter";
+  [[160, 255, 200], [190, 120, 255]].forEach((c, k) => {
+    const hh = H * .24, gr = bx.createLinearGradient(0, 0, 0, hh);
+    gr.addColorStop(0, `hsla(${c[0] + 20 * Math.sin(t * .3 + k)},100%,65%,0)`); gr.addColorStop(.35, `hsla(${c[0] + 20 * Math.sin(t * .3 + k)},100%,65%,.2)`); gr.addColorStop(1, `hsla(${c[0]},100%,65%,0)`);
+    bx.fillStyle = gr;
+    for (let x = 0; x < W; x += 6) {
+      const y = H * (.04 + k * .09) + Math.sin(x * .004 + t * .4 + k * 2) * H * .05 + Math.sin(x * .011 - t * .7) * H * .015;
+      bx.save(); bx.translate(0, y); bx.globalAlpha = .55 + .45 * Math.sin(x * .01 + t * .9 + k); bx.fillRect(x, 0, 6, hh); bx.restore();
+    }
+  });
+  bx.globalAlpha = 1;
+  // 불꽃놀이
+  const fast = typeof running !== "undefined" && running;
+  if (t > nextLaunch) { launch(); if (fast && Math.random() < .5) launch(); nextLaunch = t + (fast ? .35 + Math.random() * .6 : 1.6 + Math.random() * 1.8); }
+  fw = fw.filter(p => p.rocket ? p.y > p.ty : p.l > 0);
+  for (const p of fw) {
+    p.px = p.x; p.py = p.y; p.x += p.vx; p.y += p.vy;
+    if (p.rocket) { bx.strokeStyle = "rgba(255,230,180,.9)"; bx.lineWidth = 2; bx.beginPath(); bx.moveTo(p.px, p.py); bx.lineTo(p.x - p.vx * 3, p.y - p.vy * 3); bx.stroke();
+      if (p.y <= p.ty) burst(p.x, p.y, p.h); continue; }
+    p.vy += .035; p.vx *= .985; p.vy *= .985; p.l -= p.d;
+    bx.strokeStyle = `hsla(${p.h},100%,${60 + 25 * p.l}%,${Math.max(p.l, 0)})`; bx.lineWidth = 1.6 * p.l + .4;
+    bx.beginPath(); bx.moveTo(p.px - p.vx * 2, p.py - p.vy * 2); bx.lineTo(p.x, p.y); bx.stroke();
+  }
+  bx.globalCompositeOperation = "source-over";
+  // 벚꽃
+  for (const p of petals) {
+    p.y += p.vy; p.x += Math.sin(t + p.sw) * .6 + .3; p.rot += .02;
+    if (p.y > H + 10) { p.y = -10; p.x = Math.random() * W; } if (p.x > W + 10) p.x = -10;
+    bx.save(); bx.translate(p.x % W, p.y % H); bx.rotate(p.rot); bx.fillStyle = "rgba(255,182,210,.8)";
+    bx.beginPath(); bx.ellipse(0, 0, p.r, p.r * .55, 0, 0, 6.283); bx.fill(); bx.restore();
+  }
+  // 비행기
+  if (!plane && t > nextPlane) plane = { x: -40, y: H * (.12 + Math.random() * .2) };
+  if (plane) {
+    plane.x += 1.6; plane.y -= .05;
+    bx.fillStyle = "rgba(255,255,255,.9)"; bx.fillRect(plane.x - 5, plane.y - .5, 10, 1.2);
+    const on = Math.sin(t * 6) > 0;
+    bx.fillStyle = on ? "#ff3b3b" : "#3bff7a"; bx.shadowColor = bx.fillStyle; bx.shadowBlur = 10; bx.beginPath(); bx.arc(plane.x + (on ? -5 : 5), plane.y, 2, 0, 6.283); bx.fill(); bx.shadowBlur = 0;
+    if (plane.x > W + 40) { plane = null; nextPlane = t + 10 + Math.random() * 10; }
+  }
+}
+window.burstFX = (x, y) => burst(x, y);
+
+function frame(t) {
+  t /= 1000;
+  bx.clearRect(0, 0, W, H);
+  // horizon glow
+  const g = bx.createRadialGradient(W * .6, H * 1.02, 0, W * .6, H * 1.02, W * .7);
+  g.addColorStop(0, "rgba(255,140,70,.45)"); g.addColorStop(1, "rgba(255,140,70,0)");
+  bx.fillStyle = g; bx.fillRect(0, 0, W, H);
+  for (const s of stars) {
+    const a = .35 + .65 * (.5 + .5 * Math.sin(t * s.s + s.p));
+    bx.globalAlpha = a; bx.fillStyle = s.c; bx.beginPath(); bx.arc(s.x, s.y, s.r, 0, 6.283); bx.fill();
+    if (s.r > 1.2 && a > .85) { bx.fillRect(s.x - 5, s.y - .4, 10, .8); bx.fillRect(s.x - .4, s.y - 5, .8, 10); }
+  }
+  bx.globalAlpha = 1;
+  if (Math.random() < .004) shooters.push({ x: Math.random() * W * .8, y: Math.random() * H * .3, l: 0 });
+  shooters = shooters.filter(s => s.l < 1);
+  for (const s of shooters) {
+    s.l += .02; const x = s.x + s.l * 260, y = s.y + s.l * 120;
+    const gr = bx.createLinearGradient(x - 90, y - 42, x, y); gr.addColorStop(0, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(255,255,255,${1 - s.l})`);
+    bx.strokeStyle = gr; bx.lineWidth = 2; bx.beginPath(); bx.moveTo(x - 90, y - 42); bx.lineTo(x, y); bx.stroke();
+  }
+  drawFX(t);
+  for (const b of bokeh) {
+    b.y -= b.v * .25; if (b.y < H * .6) b.y = H + b.r;
+    const a = .12 + .12 * Math.sin(t * .8 + b.p);
+    bx.fillStyle = `rgba(${b.c},${a})`; bx.beginPath(); bx.arc(b.x, b.y, b.r, 0, 6.283); bx.fill();
+  }
+  // foreground skyline
+  fx.clearRect(0, 0, W, H);
+  for (const b of blds) {
+    fx.fillStyle = `rgb(${8 + b.shade * 10},${8 + b.shade * 8},${24 + b.shade * 18})`; fx.fillRect(b.x, H - b.h, b.w, b.h);
+    fx.fillStyle = "rgba(255,170,100,.18)"; fx.fillRect(b.x, H - b.h, b.w, 1.5);
+  }
+  for (const w of wins) {
+    const a = .3 + .7 * Math.max(0, Math.sin(t * w.s * .6 + w.p) * .5 + .6) + .6 * Math.max(0, Math.sin(w.x * .012 - t * 2.4) - .7);
+    fx.fillStyle = `rgba(${w.c},${Math.min(a, 1)})`;
+    if (w.big) { fx.shadowColor = `rgb(${w.c})`; fx.shadowBlur = 8; }
+    fx.fillRect(w.x, w.y, 3.5, 4.5);
+    if (w.big) fx.shadowBlur = 0;
+  }
+  fx.fillStyle = "#07081c"; fx.fillRect(0, H - 14, W, 14);
+  fx.globalCompositeOperation = "lighter";
+  for (const c of cars) {
+    c.x += c.v; if (c.x > W + 20) c.x = -20; if (c.x < -20) c.x = W + 20;
+    const y = H - 9 + c.lane * 5;
+    fx.fillStyle = `rgba(${c.c},.25)`; fx.fillRect(c.x - (c.v > 0 ? 14 : 0), y - 1, 14, 2);
+    fx.fillStyle = `rgb(${c.c})`; fx.beginPath(); fx.arc(c.x, y, 2, 0, 6.283); fx.fill();
+  }
+  fx.globalCompositeOperation = "source-over";
+  const hz = fx.createLinearGradient(0, H * .85, 0, H); hz.addColorStop(0, "rgba(255,120,60,0)"); hz.addColorStop(1, "rgba(255,120,60,.22)");
+  fx.fillStyle = hz; fx.fillRect(0, H * .85, W, H * .15);
+  requestAnimationFrame(frame);
+}
+addEventListener("resize", setup); setup(); requestAnimationFrame(frame);
+
+/* ---------- Stopwatch ---------- */
+const $ = id => document.getElementById(id);
+let running = false, start = 0, elapsed = 0, lastLap = 0, raf, laps = [];
+const pad = (n, l = 2) => String(n).padStart(l, "0");
+function parts(ms) {
+  return { h: pad(Math.floor(ms / 3600000)), m: pad(Math.floor(ms / 60000) % 60), s: pad(Math.floor(ms / 1000) % 60), cs: pad(Math.floor(ms / 10) % 100) };
+}
+const digits = str => [...str].map(c => `<span class="d">${c}</span>`).join("");
+function fmt(ms) { const p = parts(ms); return `${p.h}:${p.m}:${p.s}.${p.cs}`; }
+function render() {
+  const now = running ? elapsed + performance.now() - start : elapsed, p = parts(now);
+  $("time").innerHTML = `${digits(p.h)}<span class="s">:</span>${digits(p.m)}<span class="s">:</span>${digits(p.s)}<span class="cs"><span class="s">.</span>${digits(p.cs)}</span>`;
+  document.title = `${fmt(now)} · 도쿄 나이트 스탑워치`;
+  if (running) raf = requestAnimationFrame(render);
+}
+function toggle() {
+  if (running) { elapsed += performance.now() - start; running = false; cancelAnimationFrame(raf); render(); }
+  else { start = performance.now(); running = true; raf = requestAnimationFrame(render); }
+  $("toggle").textContent = running ? "정지" : (elapsed ? "계속" : "시작");
+  $("toggle").classList.toggle("stop", running);
+  $("panel").classList.toggle("running", running);
+  document.body.classList.toggle("running", running);
+  burstFX(W * (innerWidth > innerHeight ? .72 : .5), H * .3); burstFX(W * (innerWidth > innerHeight ? .62 : .35), H * .22);
+  $("lap").disabled = !running; $("reset").disabled = running || !elapsed;
+}
+function drawLaps() {
+  if (!laps.length) { $("laps").innerHTML = ""; return; }
+  const sp = laps.map(l => l.split), best = Math.min(...sp), worst = Math.max(...sp);
+  $("laps").innerHTML = laps.map(l => `<li class="${laps.length > 2 ? (l.split === best ? "best" : l.split === worst ? "worst" : "") : ""}">` +
+    `<span>랩 ${l.n}</span><span>+${fmt(l.split).replace(/^00:/, "")}</span><span>${fmt(l.total)}</span></li>`).join("");
+}
+function lap() {
+  if (!running) return;
+  const now = elapsed + performance.now() - start;
+  laps.unshift({ n: laps.length + 1, split: now - lastLap, total: now }); lastLap = now; drawLaps();
+  burstFX(W * (.45 + Math.random() * .45), H * (.15 + Math.random() * .25));
+}
+function reset() {
+  if (running) return;
+  elapsed = 0; lastLap = 0; laps = []; drawLaps();
+  $("toggle").textContent = "시작"; $("reset").disabled = true; render();
+}
+$("toggle").onclick = toggle; $("lap").onclick = lap; $("reset").onclick = reset;
+addEventListener("keydown", e => {
+  if (e.code === "Space") { e.preventDefault(); toggle(); }
+  else if (e.key.toLowerCase() === "l") lap();
+  else if (e.key.toLowerCase() === "r") reset();
+});
+render();
+</script>
+</body>
+</html>
